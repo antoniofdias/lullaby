@@ -1,0 +1,4 @@
+import detect_closed_eyes
+import mqtt_client
+
+detect_closed_eyes.detect_eyes(mqtt_client.client)
