@@ -1,14 +1,32 @@
 from scipy.spatial import distance as dist
-
 from imutils.video import VideoStream
 from imutils import face_utils
+from sys import exit
 
+import paho.mqtt.client as mqtt
+import mqtt_methods
 import dlib
 import time
 import argparse
 import imutils
 import numpy as np
 import cv2
+
+host = "192.168.1.102"
+port = "1883"
+framesPassed = 0
+
+client = mqtt.Client()
+client.on_connect = mqtt_methods.on_connect
+client.on_disconnect = mqtt_methods.on_disconnect
+
+status = "awake"
+
+try:
+    client.connect(host, port)
+except:
+    print("Error has ocurred!")
+    exit()
 
 def eye_aspect_ratio(eye):
 	A = dist.euclidean(eye[1], eye[5])
@@ -36,9 +54,13 @@ vs = VideoStream(src=0).start()
 
 time.sleep(1.0)
 
+client.loop_start()
+
 while True:
+    ++framesPassed
+
     frame = vs.read()
-    # frame = imutils.resize(frame, width=450)
+    frame = imutils.resize(frame, width = 450)
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -65,17 +87,19 @@ while True:
             COUNTER += 1
             
             if COUNTER >= EYE_AR_CONSEC_FRAMES:
-                # if not ALARM_ON:
-                #     ALARM_ON = True
-                    
                 cv2.putText(frame, "OLHOS FECHADOS", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                
+                status = "asleep"
         else:
             COUNTER = 0
-            # ALARM_ON
+            status = "awake"
 
         cv2.putText(frame, "EAR: {:.2f}".format(ear), (500, 30),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        
+        if (framesPassed >=150):
+            client.publish("status", status)
 
 
     cv2.imshow("Frame", frame)
@@ -85,6 +109,7 @@ while True:
     if key == ord("q"):
         break
 
+client.loop_stop()
 
 cv2.destroyAllWindows()
 vs.stop()
